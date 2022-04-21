@@ -1,3 +1,0 @@
-
-
-similar_genes = []

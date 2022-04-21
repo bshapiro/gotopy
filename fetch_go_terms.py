@@ -59,7 +59,7 @@ def convert_meth_to_entrez(meth_file_location, exp_file_location=None, R_file_lo
         file_genes = load(open(exp_file_location, 'rb')).index
         R = load(open(R_file_location, 'rb'))
     probes = load(open(meth_file_location, 'rb')).index
-    hg19_meth_annotations = pd.read_csv(open('data/TCGA/hm27_hg19_annotations.txt'), keep_default_na=False, sep='\t')
+    hg19_meth_annotations = pd.read_csv(open('../data/hm27_hg19_annotations.txt'), keep_default_na=False, sep='\t')
     hg19_meth_map = dict(hg19_meth_annotations[hg19_meth_annotations['probeID'].isin(probes)].loc[:, ['probeID', 'gene']].values)
     meth_gene_map = {}
     meth_genes = []
@@ -146,9 +146,9 @@ if __name__ == "__main__":
     # view2 = 'pqtl_protein'
 
     exp_entrez_dict = convert_exp_to_entrez(exp_file_location)
-    dump(exp_entrez_dict, open("data/exp_symbol_to_entrez.dump", "wb"))
-    meth_entrez_dict = convert_meth_to_entrez(exp_file_location, meth_file_location, R_file_location)
-    dump(meth_entrez_dict, open("data/meth_symbol_to_entrez.dump", "wb"))
+    dump(exp_entrez_dict, open("data/exp_intrinsic_symbol_to_entrez.dump", "wb"))
+    meth_entrez_dict = convert_meth_to_entrez(meth_file_location, exp_file_location, R_file_location)
+    dump(meth_entrez_dict, open("data/meth_intrinsic_symbol_to_entrez.dump", "wb"))
 
     # pqtl_gene_dict, pqt_protein_dict = convert_protexp_to_entrez()
 
