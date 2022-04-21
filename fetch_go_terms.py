@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 
 
-def get_terms(entrez_dict, view, namespace, goto_type):
+def get_terms(entrez_dict, name, namespace, goto_type):
     objanno = Gene2GoReader("data/gene2go", taxids=[9606])  # human
     gene2goids_human = objanno.get_id2gos(namespace=namespace, taxids=[9606])  # namespace: BP, MF, CC
     go2geneids_human = objanno.get_id2gos(namespace=namespace, go2geneids=True, taxids=[9606])
@@ -39,52 +39,47 @@ def get_terms(entrez_dict, view, namespace, goto_type):
                 go2parents_nr_filtered = [go for go in go2parents_nr if go2geneids_counter[go] > 30 and go2geneids_counter[go] < 200]
             elif goto_type == '0':
                 go2parents_nr_filtered = [go for go in go2parents_nr if go2geneids_counter[go] > 0]
-            print(len(go2parents_nr), len(go2parents_nr))
             if go_dict.get(entity) == ['NO GOIDS'] or go_dict.get(entity) == ['NO ENTREZ'] or go_dict.get(entity) is None:
                 go_dict[entity] = [go2parents_nr_filtered]
             else:
                 go_dict[entity].append(go2parents_nr_filtered)
-        if go_dict[entity] == []:
-            import pdb; pdb.set_trace()
 
-    dump(go_dict, open('data/go_' + view + '_' + namespace + '_' + goto_type + '_terms.dump', 'wb'))
+    dump(go_dict, open('data/go_' + name + '_' + namespace + '_' + goto_type + '_terms.dump', 'wb'))
     return go_dict
 
 
-def convert_methexp_to_entrez(view):
-    if view.startswith('exp'):
-        genes = load(open('data/TCGA/TCGA_' + view + '.dump', 'rb')).index
-        gene_entrez_dict = convert_genes_to_entrez(genes)
-        dump(gene_entrez_dict, open("data/" + view + "_symbol_to_entrez.dump", "wb"))
-        return gene_entrez_dict
-    elif view.startswith('meth'):
-        genes_view = view.replace('meth', 'exp', 1)
-        total_genes = load(open('data/TCGA/TCGA_' + genes_view + '.dump', 'rb')).index
-        R = load(open('data/TCGA/TCGA_R_' + view[5:] + '.dump', 'rb'))
-        probes = load(open('data/TCGA/TCGA_' + view + '.dump', 'rb')).index
-        meth_annotations = pd.read_csv(open('data/TCGA/hm27_hg19_annotations.txt'), keep_default_na=False, sep='\t')
-        meth_map = dict(meth_annotations[meth_annotations['probeID'].isin(probes)].loc[:, ['probeID', 'gene']].values)
-        meth_gene_map = {}
-        meth_genes = []
-        i = 0
-        for probe in probes:
-            comb_gene = meth_map[probe]
-            print(probe, comb_gene)
-            genes = comb_gene.split(';')
-            print([total_genes[j] for j in np.nonzero(R.T[i, :])[0]])
-            genes.extend([total_genes[j] for j in np.nonzero(R.T[i, :])[0]])
-            genes = list(set(genes))
-            # print(genes)
-            meth_gene_map[probe] = genes
-            meth_genes.extend(genes)
-            i += 1
-        gene_entrez_dict = convert_genes_to_entrez(set(meth_genes))
-        probe_entrez_dict = defaultdict(list)
-        for probe in probes:
-            for gene in meth_gene_map[probe]:
-                probe_entrez_dict[probe].extend(gene_entrez_dict[gene])
-        dump(probe_entrez_dict, open("data/" + view + "_symbol_to_entrez.dump", "wb"))
-        return probe_entrez_dict
+def convert_exp_to_entrez(exp_file_location):
+    genes = load(open(exp_file_location, 'rb')).index
+    gene_entrez_dict = convert_genes_to_entrez(genes)
+    return gene_entrez_dict
+
+
+def convert_meth_to_entrez(meth_file_location, exp_file_location=None, R_file_location=None):
+    if exp_file_location is not None:
+        file_genes = load(open(exp_file_location, 'rb')).index
+        R = load(open(R_file_location, 'rb'))
+    probes = load(open(meth_file_location, 'rb')).index
+    hg19_meth_annotations = pd.read_csv(open('data/TCGA/hm27_hg19_annotations.txt'), keep_default_na=False, sep='\t')
+    hg19_meth_map = dict(hg19_meth_annotations[hg19_meth_annotations['probeID'].isin(probes)].loc[:, ['probeID', 'gene']].values)
+    meth_gene_map = {}
+    meth_genes = []
+    i = 0
+    for probe in probes:
+        comb_related_genes = hg19_meth_map[probe]
+        related_genes = comb_related_genes.split(';')
+        if exp_file_location is not None:
+            related_genes.extend([file_genes[j] for j in np.nonzero(R.T[i, :])[0]])
+            related_genes = list(set(related_genes))
+        meth_gene_map[probe] = related_genes
+        meth_genes.extend(related_genes)
+        i += 1
+    gene_entrez_dict = convert_genes_to_entrez(set(meth_genes))
+    probe_entrez_dict = defaultdict(list)
+    for probe in probes:
+        for gene in meth_gene_map[probe]:
+            probe_entrez_dict[probe].extend(gene_entrez_dict[gene])
+        probe_entrez_dict[probe] = list(set(probe_entrez_dict[probe]))
+    return probe_entrez_dict
 
 
 def convert_protexp_to_entrez():
@@ -137,6 +132,9 @@ def convert_ensembl_to_entrez(genes):
 
 if __name__ == "__main__":
 
+    exp_file_location = '../data/TCGA_exp_intrinsic.dump'
+    meth_file_location = '../data/TCGA_meth_intrinsic.dump'
+    R_file_location = '../data/TCGA_R_intrinsic.dump'
     view1 = 'exp_intrinsic'
     view2 = 'meth_intrinsic'
 
@@ -147,8 +145,10 @@ if __name__ == "__main__":
     # view1 = 'pqtl_gene'
     # view2 = 'pqtl_protein'
 
-    exp_entrez_dict = convert_methexp_to_entrez(view1)
-    meth_entrez_dict = convert_methexp_to_entrez(view2)
+    exp_entrez_dict = convert_exp_to_entrez(exp_file_location)
+    dump(exp_entrez_dict, open("data/exp_symbol_to_entrez.dump", "wb"))
+    meth_entrez_dict = convert_meth_to_entrez(exp_file_location, meth_file_location, R_file_location)
+    dump(meth_entrez_dict, open("data/meth_symbol_to_entrez.dump", "wb"))
 
     # pqtl_gene_dict, pqt_protein_dict = convert_protexp_to_entrez()
 
