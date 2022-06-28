@@ -5,8 +5,8 @@ from copy import copy
 import numpy as np
 
 
-def compute_goto(entities, no_rel_entities, z, k, namespace, view, goto_type='0'):
-    entity_go_dict = load(open('data/go_' + view + '_' + namespace + '_' + goto_type + '_terms.dump', 'rb'))
+def compute_goto(entities, no_rel_entities, z, k, namespace, view, goto_type='all'):
+    entity_go_dict = load(open('gotopy/data/go_' + view + '_' + namespace + '_' + goto_type + '_terms.dump', 'rb'))
     cluster_goto_scores = []
     goto_dict = defaultdict(lambda: 0)
     cluster_sizes = []
@@ -37,6 +37,8 @@ def compute_goto_cluster(entities, namespace, entity_go_dict):
     entities_final = []
     for entity in entities:
         terms_list = entity_go_dict.get(entity)
+        if terms_list is None:
+            import pdb; pdb.set_trace()
         if not isinstance(terms_list[0], str):
             entities_final.append(entity)
     n_entities_final = len(entities_final)
