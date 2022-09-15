@@ -1,7 +1,6 @@
 from collections import defaultdict
 from itertools import combinations
 from pickle import load
-from copy import copy
 import numpy as np
 
 
@@ -10,7 +9,6 @@ def compute_goto(entities, no_rel_entities, z, k, namespace, view, goto_type='al
     cluster_goto_scores = []
     goto_dict = defaultdict(lambda: 0)
     cluster_sizes = []
-    num_clusters = copy(k)
     for cluster in range(k):
         entity_indices = np.where(z == cluster)
         cluster_entities = entities[entity_indices]
@@ -23,8 +21,7 @@ def compute_goto(entities, no_rel_entities, z, k, namespace, view, goto_type='al
             goto_dict[cluster] = 0
             cluster_goto_scores.append(0)
             cluster_sizes.append(0)
-            num_clusters = num_clusters - 1  # remove cluster without pairs
-    # print(cluster_goto_scores)
+
     cluster_weights = [cluster_sizes[i] / float(np.sum(cluster_sizes)) for i in range(k)]
     goto_weight_dict = dict(zip([i for i in range(k)], cluster_weights))
 
@@ -37,8 +34,6 @@ def compute_goto_cluster(entities, namespace, entity_go_dict):
     entities_final = []
     for entity in entities:
         terms_list = entity_go_dict.get(entity)
-        if terms_list is None:
-            import pdb; pdb.set_trace()
         if not isinstance(terms_list[0], str):
             entities_final.append(entity)
     n_entities_final = len(entities_final)
@@ -71,7 +66,6 @@ def compute_pairwise_goto(entity_i, entity_j, entity_go_dict):
     for terms_i in terms_i_list:
         for terms_j in terms_j_list:
             num_intersect = len(set(terms_i).intersection(set(terms_j)))
-            # print(terms_i, terms_j, num_intersect)
             if num_intersect != 0:
                 num_intersect = num_intersect
                 # num_intersect = num_intersect / float(min(len(set(terms_i)), len(set(terms_j)))) # this is normalized GOTO
