@@ -4,15 +4,15 @@ from pickle import load
 import numpy as np
 
 
-def compute_goto(entities, no_rel_entities, z, k, namespace, view, goto_type='all'):
-    entity_go_dict = load(open('gotopy/data/go_' + view + '_' + namespace + '_' + goto_type + '_terms.dump', 'rb'))
+def compute_goto(entities, z, k, name, exp_or_meth, goto_type='all'):
+    entity_go_dict = load(open('data/go_' + exp_or_meth + '_' + name + '_' + goto_type + '_terms.dump', 'rb'))
     cluster_goto_scores = []
     goto_dict = defaultdict(lambda: 0)
     cluster_sizes = []
     for cluster in range(k):
         entity_indices = np.where(z == cluster)
         cluster_entities = entities[entity_indices]
-        cluster_goto, cluster_size = compute_goto_cluster(cluster_entities, namespace, entity_go_dict)
+        cluster_goto, cluster_size = compute_goto_cluster(cluster_entities, name, entity_go_dict)
         if cluster_goto is not None:
             goto_dict[cluster] = cluster_goto
             cluster_goto_scores.append(cluster_goto)
@@ -29,7 +29,7 @@ def compute_goto(entities, no_rel_entities, z, k, namespace, view, goto_type='al
     return weighted_goto, goto_dict, goto_weight_dict
 
 
-def compute_goto_cluster(entities, namespace, entity_go_dict):
+def compute_goto_cluster(entities, entity_go_dict):
     sum_intersect = 0
     entities_final = []
     for entity in entities:

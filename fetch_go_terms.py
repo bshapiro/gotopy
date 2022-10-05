@@ -9,18 +9,41 @@ import mygene
 import pandas as pd
 import numpy as np
 from glob import glob
+from optparse import OptionParser
 
-METH_ANNOTATION_FILE = '../data/hm27_hg19_annotations.txt'  # change for your purposes
+parser = OptionParser()
+parser.add_option("-MA", "--meth_annotations", dest="METH_ANNOTATION_FILE",
+                  help="Methylation probe array annotation file", default='../data/hm27_hg19_annotations.txt')
+parser.add_option("-G2G", "--gene2go", dest="GENE2GO_DB", default="data/gene2go",
+                  help="")
+parser.add_option("-GO", "--go", dest="GO_BASIC_DB", default="data/go-basic.obo",
+                  help="")
+parser.add_option("-t", "--type", dest="GOTO_TYPE", default='0',
+                  help="How to filter GO terms. \n \
+                  - '0' to filter to GO terms with more than 0 gene products. \n \
+                  - '0200' to filter to GO terms with more than 0 gene products and less than 200. \n \
+                  - 'all' to retain all related GO terms.")
+parser.add_option("-e", "--exp", dest="EXP_FILE_LOCATION", default=None,
+                  help="Location of expression matrices to use for generating GO terms.")
+parser.add_option("-m", "--meth", dest="METH_FILE_LOCATION", default=None,
+                  help="Location of methylation matrices to use for generating GO terms.")
+parser.add_option("-R", "--R", dest="R_FILE_LOCATION", default=None, 
+                  help="Location of relatiobship matrices to use for generating GO terms. \
+                  Only for use with methylation data.")
+parser.add_option("-C", "--category", dest="category", default="BP"
+                  help="GO category to use: BP, MF, CC or all.")
 
+
+(options, args) = parser.parse_args()
 
 def get_terms(entrez_dict, name, namespace, goto_type='0'):
-    objanno = Gene2GoReader("data/gene2go", taxids=[9606])  # human
+    objanno = Gene2GoReader(options.GENE2GO_DB, taxids=[9606])  # human
     gene2goids_human = objanno.get_id2gos(namespace=namespace, taxids=[9606])  # namespace: BP, MF, CC
     go2geneids_human = objanno.get_id2gos(namespace=namespace, go2geneids=True, taxids=[9606])
     go2geneids_counter = Counter()
     for go in go2geneids_human:
         go2geneids_counter[go] = len(go2geneids_human[go])
-    godag = get_godag('data/go-basic.obo', optional_attrs='relationship')
+    godag = get_godag(options.GO_BASIC_DB, optional_attrs='relationship')
     go_dict = {}
     for entity in entrez_dict.keys():
         entrez_ids = entrez_dict[entity]
@@ -86,7 +109,7 @@ def convert_meth_to_entrez(meth_file_location, exp_file_location=None, R_file_lo
             R_filename = R_filenames[i]
             R = load(open(R_filename, 'rb'))
         probes = load(open(meth_filename, 'rb')).index
-        hg19_meth_annotations = pd.read_csv(open(METH_ANNOTATION_FILE), keep_default_na=False, sep='\t')
+        hg19_meth_annotations = pd.read_csv(open(options.METH_ANNOTATION_FILE), keep_default_na=False, sep='\t')
         hg19_meth_map = dict(hg19_meth_annotations[hg19_meth_annotations['probeID'].isin(probes)].loc[:, ['probeID', 'gene']].values)
 
         for j, probe in enumerate(probes):
@@ -133,32 +156,38 @@ def convert_genes_to_entrez(genes):
 
 
 if __name__ == "__main__":
-    # example use below
-    view1 = 'exp_intrinsic'
-    view2 = 'meth_intrinsic'
 
-    try:
-        view1_entrez_dict = load(open("data/" + view1 + "_symbol_to_entrez.dump", "rb"))
-        view2_entrez_dict = load(open("data/" + view2 + "_symbol_to_entrez.dump", "rb"))
-    except:
-        exp_file_location = '../data/TCGA_exp_*_intrinsic.dump'
-        meth_file_location = '../data/TCGA_meth_*_intrinsic.dump'
-        R_file_location = '../data/TCGA_R_*_intrinsic.dump'
+    ### EXAMPLE SET UP ###
 
-        view1_entrez_dict = convert_exp_to_entrez(exp_file_location)
-        dump(view1_entrez_dict, open("data/exp_intrinsic_symbol_to_entrez.dump", "wb"))
-        view2_entrez_dict = convert_meth_to_entrez(meth_file_location, exp_file_location, R_file_location)
-        dump(view2_entrez_dict, open("data/meth_intrinsic_symbol_to_entrez.dump", "wb"))
+    name = 'intrinsic'
 
-    goto_type = '0'
+    EXP_FILE_LOCATION = '../data/TCGA_exp_*_intrinsic.dump'
+    METH_FILE_LOCATION = '../data/TCGA_meth_*_intrinsic.dump'
+    R_FILE_LOCATION = '../data/TCGA_R_*_intrinsic.dump'
 
-    get_terms(view1_entrez_dict, view1, 'BP', goto_type)
-    get_terms(view2_entrez_dict, view2, 'BP', goto_type)
+    if options.EXP_FILE_LOCATION is not None:
+        EXP_FILE_LOCATION = options.EXP_FILE_LOCATION
+    if options.METH_FILE_LOCATION is not None:
+        METH_FILE_LOCATION = options.METH_FILE_LOCATION
+    if options.R_FILE_LOCATION is not None:
+        R_FILE_LOCATION = options.R_FILE_LOCATION
 
-    get_terms(view1_entrez_dict, view1, 'CC', goto_type)
-    get_terms(view1_entrez_dict, view1, 'MF', goto_type)
-    get_terms(view1_entrez_dict, view1, 'all', goto_type)
+    ### PIPELINE BELOW ###
 
-    get_terms(view2_entrez_dict, view2, 'CC', goto_type)
-    get_terms(view2_entrez_dict, view2, 'MF', goto_type)
-    get_terms(view2_entrez_dict, view2, 'all', goto_type)
+    if EXP_FILE_LOCATION is not None: 
+        try:
+            exp_entrez_dict = load(open("data/exp_" + name + "_symbol_to_entrez.dump", "rb"))
+        except:
+            exp_entrez_dict = convert_exp_to_entrez(EXP_FILE_LOCATION)
+            dump(exp_entrez_dict, open("data/exp_" + name + "_symbol_to_entrez.dump", "wb"))
+
+        get_terms(exp_entrez_dict, exp_name, options.category, options.GOTO_TYPE)
+
+    if METH_FILE_LOCATION is not None: 
+        try:
+            meth_entrez_dict = load(open("data/meth_" + name + "_symbol_to_entrez.dump", "rb"))
+        except:
+            meth_entrez_dict = convert_meth_to_entrez(METH_FILE_LOCATION, EXP_FILE_LOCATION, R_FILE_LOCATION)
+            dump(meth_entrez_dict, open("data/meth_" + name + "_symbol_to_entrez.dump", "wb"))
+
+        get_terms(meth_entrez_dict, meth_name, options.category, options.GOTO_TYPE)
