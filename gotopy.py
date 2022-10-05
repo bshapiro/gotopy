@@ -3,16 +3,17 @@ from itertools import combinations
 from pickle import load
 import numpy as np
 
+GOTOPY_HOME = '/Users/benj/Documents/Research/Projects/bmvc/eval/tcga/gotopy/'
 
 def compute_goto(entities, z, k, name, exp_or_meth, goto_type='all'):
-    entity_go_dict = load(open('data/go_' + exp_or_meth + '_' + name + '_' + goto_type + '_terms.dump', 'rb'))
+    entity_go_dict = load(open(GOTOPY_HOME + 'data/go_' + exp_or_meth + '_' + name + '_' + goto_type + '_terms.dump', 'rb'))
     cluster_goto_scores = []
     goto_dict = defaultdict(lambda: 0)
     cluster_sizes = []
     for cluster in range(k):
         entity_indices = np.where(z == cluster)
         cluster_entities = entities[entity_indices]
-        cluster_goto, cluster_size = compute_goto_cluster(cluster_entities, name, entity_go_dict)
+        cluster_goto, cluster_size = compute_goto_cluster(cluster_entities, entity_go_dict)
         if cluster_goto is not None:
             goto_dict[cluster] = cluster_goto
             cluster_goto_scores.append(cluster_goto)
