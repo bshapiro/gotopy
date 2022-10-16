@@ -5,8 +5,13 @@ import numpy as np
 
 GOTOPY_HOME = '/Users/benj/Documents/Research/Projects/bmvc/eval/tcga/gotopy/'
 
-def compute_goto(entities, z, k, name, exp_or_meth, goto_type='all'):
-    entity_go_dict = load(open(GOTOPY_HOME + 'data/go_' + exp_or_meth + '_' + name + '_' + goto_type + '_terms.dump', 'rb'))
+def compute_goto_clustering(entities, z, k, entity_go_dict):
+    """
+    Computes the GOTO score of a clustering of entities. Requires a list of entities,
+    the cluster labels of those entities (z), the number of total clusters in the clustering
+    (k), and a dictionary entity_go_dict which maps entity names to their associated 
+    GO terms.
+    """
     cluster_goto_scores = []
     goto_dict = defaultdict(lambda: 0)
     cluster_sizes = []
@@ -29,8 +34,12 @@ def compute_goto(entities, z, k, name, exp_or_meth, goto_type='all'):
     weighted_goto = np.dot(cluster_goto_scores, cluster_weights)
     return weighted_goto, goto_dict, goto_weight_dict
 
-
 def compute_goto_cluster(entities, entity_go_dict):
+    """
+    Computes the GOTO score of a cluster of entities. Requires a list of entities
+    and a dictionary entity_go_dict which maps entity names to their associated 
+    GO terms.
+    """
     sum_intersect = 0
     entities_final = []
     for entity in entities:
@@ -51,6 +60,11 @@ def compute_goto_cluster(entities, entity_go_dict):
 
 
 def compute_pairwise_goto(entity_i, entity_j, entity_go_dict):
+    """
+    Computes the GOTO score of two entities. Requires two entity names 
+    and a dictionary entity_go_dict which maps entity names to their associated 
+    GO terms.
+    """
     cur_intersections = []
     no_entrez_or_go_entities = set()
     terms_i_list = entity_go_dict.get(entity_i)
@@ -68,9 +82,21 @@ def compute_pairwise_goto(entity_i, entity_j, entity_go_dict):
         for terms_j in terms_j_list:
             num_intersect = len(set(terms_i).intersection(set(terms_j)))
             if num_intersect != 0:
-                num_intersect = num_intersect
+                num_intersect = num_intersect  # this is GOTO
                 # num_intersect = num_intersect / float(min(len(set(terms_i)), len(set(terms_j)))) # this is normalized GOTO
                 # num_intersect = 1  # this is BHI
             cur_intersections.append(num_intersect)
     else:
         return np.mean(cur_intersections)
+
+def compute_goto_clustering_from_experiment_name(entities, z, k, name, exp_or_meth, goto_type='all'):
+    """
+    Computes the GOTO score of a clustering of entities. Requires a list of entities,
+    the cluster labels of those entities (z), the number of total clusters in the clustering
+    (k). Uses name, exp_or_meth (which determines whether entities are expression or methylation,
+    and the type of GOTO analysis ('all', 'BP', 'CC', "MF") to find the appropriate entity_go_dict
+    to use in subequent function calls. 
+    """
+    entity_go_dict = load(open(GOTOPY_HOME + 'data/go_' + exp_or_meth + '_' + name + '_' + goto_type + '_terms.dump', 'rb'))
+    return compute_goto_clustering(entities, z, k, entity_go_dict)
+

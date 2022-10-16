@@ -12,12 +12,12 @@ from glob import glob
 from optparse import OptionParser
 
 parser = OptionParser()
-parser.add_option("-MA", "--meth_annotations", dest="METH_ANNOTATION_FILE",
+parser.add_option("-a", "--meth_annotations", dest="METH_ANNOTATION_FILE",
                   help="Methylation probe array annotation file", default='../data/hm27_hg19_annotations.txt')
-parser.add_option("-G2G", "--gene2go", dest="GENE2GO_DB", default="data/gene2go",
-                  help="")
-parser.add_option("-GO", "--go", dest="GO_BASIC_DB", default="data/go-basic.obo",
-                  help="")
+parser.add_option("-g", "--gene2go", dest="GENE2GO_DB", default="data/gene2go",
+                  help="Location of gene2go DB.")
+parser.add_option("-G", "--go", dest="GO_BASIC_DB", default="data/go-basic.obo",
+                  help="Location of GO term DB.")
 parser.add_option("-t", "--type", dest="GOTO_TYPE", default='0',
                   help="How to filter GO terms. \n \
                   - '0' to filter to GO terms with more than 0 gene products. \n \
@@ -27,16 +27,33 @@ parser.add_option("-e", "--exp", dest="EXP_FILE_LOCATION", default=None,
                   help="Location of expression matrices to use for generating GO terms.")
 parser.add_option("-m", "--meth", dest="METH_FILE_LOCATION", default=None,
                   help="Location of methylation matrices to use for generating GO terms.")
+parser.add_option("-n", "--name", dest="name", default=None,
+                  help="Name of experiment to use as prefix for GO term maps and dbs. Using a previously used  \
+                        term will overwrite term dbs.")
 parser.add_option("-R", "--R", dest="R_FILE_LOCATION", default=None, 
                   help="Location of relatiobship matrices to use for generating GO terms. \
                   Only for use with methylation data.")
-parser.add_option("-C", "--category", dest="category", default="BP"
+parser.add_option("-C", "--category", dest="category", default="BP",
                   help="GO category to use: BP, MF, CC or all.")
 
 
 (options, args) = parser.parse_args()
 
 def get_terms(entrez_dict, name, namespace, goto_type='0'):
+    """
+    Fetches GO terms for the entrez IDs stored in entrez_dict and the 
+    GO category specified in namespace and stores them in a dictionary
+    mapping entities to their associated GO terms. Returns the dictionary
+    and also pickles a copy to store in data/.
+
+    entrez_dict: the dictionary mapping entities to their entrez_ids.
+    name: is the experiment name to use when storing results.
+    namespace: which GO category to use: 'BP', 'MF', 'CC' or 'all'.
+    goto_type: defines which terms to filter to. Use:
+    - '0' to filter to GO terms with more than 0 gene products.
+    - '0200' to filter to GO terms with more than 0 gene products and less than 200.
+    - 'all' to retain all related GO terms.
+    """
     objanno = Gene2GoReader(options.GENE2GO_DB, taxids=[9606])  # human
     gene2goids_human = objanno.get_id2gos(namespace=namespace, taxids=[9606])  # namespace: BP, MF, CC
     go2geneids_human = objanno.get_id2gos(namespace=namespace, go2geneids=True, taxids=[9606])
@@ -77,6 +94,13 @@ def get_terms(entrez_dict, name, namespace, goto_type='0'):
 
 
 def convert_exp_to_entrez(exp_file_location):
+     """
+    Given the location of a gene expression dataset(s), converts the set of genes
+    to corresponding gene entrez IDs. 
+
+    Files are currently expected to be pickled pandas matrices of dimension g x s 
+    (where g is the number genes and s is the number of samples.) 
+    """
     filenames = glob(exp_file_location)
     all_genes = set()
     for filename in filenames:
@@ -88,6 +112,12 @@ def convert_exp_to_entrez(exp_file_location):
 
 def convert_meth_to_entrez(meth_file_location, exp_file_location=None, R_file_locations=None):
     """
+    Given the location of a methylation dataset(s), converts the set of methylation 
+    probes to corresponding gene entrez IDs. 
+
+    Files are currently expected to be pickled pandas matrices of dimension p x s 
+    (where p is the number probes and s is the number of samples.) 
+
     Optionally, provide the location of expression data and a matrix R that maps
     expression to methylation by index. This ensures that genes known a priori
     to be related to the methylation probe are included in the set of associated
@@ -134,6 +164,12 @@ def convert_meth_to_entrez(meth_file_location, exp_file_location=None, R_file_lo
 
 
 def convert_genes_to_entrez(genes):
+    """
+    Converts the list of gene symbols to corresponding gene entrez IDs. 
+    """
+
+    Files are currently expected to be pickled pandas matrices of dimension p x s 
+    (where p is the number probes and s is the number of samples.) 
     mg = mygene.MyGeneInfo()
     responses = mg.querymany(genes, scopes='symbol', species='9606', entrezonly=True)
     gene_name_dict = defaultdict(list)
@@ -157,14 +193,6 @@ def convert_genes_to_entrez(genes):
 
 if __name__ == "__main__":
 
-    ### EXAMPLE SET UP ###
-
-    name = 'intrinsic'
-
-    EXP_FILE_LOCATION = '../data/TCGA_exp_*_intrinsic.dump'
-    METH_FILE_LOCATION = '../data/TCGA_meth_*_intrinsic.dump'
-    R_FILE_LOCATION = '../data/TCGA_R_*_intrinsic.dump'
-
     if options.EXP_FILE_LOCATION is not None:
         EXP_FILE_LOCATION = options.EXP_FILE_LOCATION
     if options.METH_FILE_LOCATION is not None:
@@ -172,22 +200,20 @@ if __name__ == "__main__":
     if options.R_FILE_LOCATION is not None:
         R_FILE_LOCATION = options.R_FILE_LOCATION
 
-    ### PIPELINE BELOW ###
-
     if EXP_FILE_LOCATION is not None: 
         try:
-            exp_entrez_dict = load(open("data/exp_" + name + "_symbol_to_entrez.dump", "rb"))
+            exp_entrez_dict = load(open("data/exp_" + options.name + "_symbol_to_entrez.dump", "rb"))
         except:
             exp_entrez_dict = convert_exp_to_entrez(EXP_FILE_LOCATION)
-            dump(exp_entrez_dict, open("data/exp_" + name + "_symbol_to_entrez.dump", "wb"))
+            dump(exp_entrez_dict, open("data/exp_" + options.name + "_symbol_to_entrez.dump", "wb"))
 
-        get_terms(exp_entrez_dict, exp_name, options.category, options.GOTO_TYPE)
+        get_terms(exp_entrez_dict, 'exp_' + options.name, options.category, options.GOTO_TYPE)
 
     if METH_FILE_LOCATION is not None: 
         try:
-            meth_entrez_dict = load(open("data/meth_" + name + "_symbol_to_entrez.dump", "rb"))
+            meth_entrez_dict = load(open("data/meth_" + options.name + "_symbol_to_entrez.dump", "rb"))
         except:
             meth_entrez_dict = convert_meth_to_entrez(METH_FILE_LOCATION, EXP_FILE_LOCATION, R_FILE_LOCATION)
-            dump(meth_entrez_dict, open("data/meth_" + name + "_symbol_to_entrez.dump", "wb"))
+            dump(meth_entrez_dict, open("data/meth_" + options.name + "_symbol_to_entrez.dump", "wb"))
 
-        get_terms(meth_entrez_dict, meth_name, options.category, options.GOTO_TYPE)
+        get_terms(meth_entrez_dict, 'meth_' + options.name, options.category, options.GOTO_TYPE)
