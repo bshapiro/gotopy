@@ -1,4 +1,4 @@
-# gotopy
+# GOTOpy
 
 GOTOpy provides a collection of functions for computing the Gene Ontology Term Overlap of collections of genes or methylation probes (hereafter referred to as entities). It includes functions that allow the comparison of pairs of entities, clusters of entities or clusterings of entities. Additionally, we include a script fetch_go_terms.py which generates maps from genes or probes to corresponding sets of Gene Ontology terms for use with GOTOpy. 
 
