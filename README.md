@@ -21,3 +21,7 @@ NB: Before running, please ensure that the global variable GOTOPY_HOME in gotopy
 GOTOpy was developed as part of the work presented in academic work on Bayesian Multi-View Clustering. If you have any questions regarding its use, please feel free to submit issues here, or reach out to the authors. 
 
 GOTOpy is available for public use under a BSD-3 license. 
+
+## DOI
+
+[![DOI](https://zenodo.org/badge/482126621.svg)](https://zenodo.org/badge/latestdoi/482126621)
